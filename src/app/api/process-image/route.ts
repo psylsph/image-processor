@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData();
     const file = formData.get('image') as File;
+    const blurAmount = Number(formData.get('blurAmount')) || 20;
     
     if (!file) {
       console.log('No file provided');
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Create blurred background
     const blurredBuffer = await sharp(resizedImage)
-      .blur(20)
+      .blur(blurAmount)
       .modulate({
         brightness: 0.7,
         saturation: 1.3
