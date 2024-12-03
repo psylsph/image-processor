@@ -58,15 +58,27 @@ export default function Home() {
         body: formData,
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to process image' }));
-        throw new Error(errorData.error || 'Failed to process image');
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Non-JSON response:', await response.text());
+        throw new Error('Invalid server response format');
       }
-      
+
       const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('Server error:', result);
+        throw new Error(result.error || `Server error: ${response.status}`);
+      }
+
+      if (!result.original || !result.noBackground || !result.blurredBackground || !result.combined) {
+        console.error('Invalid response format:', result);
+        throw new Error('Invalid response format from server');
+      }
+
       setProcessedImages(result);
     } catch (error) {
-      console.error('Error processing image:', error);
+      console.error('Error details:', error);
       setError(error instanceof Error ? error.message : 'Failed to process image');
     } finally {
       setLoading(false);
