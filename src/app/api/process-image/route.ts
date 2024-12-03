@@ -94,22 +94,25 @@ export async function POST(request: NextRequest) {
         throw new Error('Failed to remove background after multiple attempts');
       }
 
-      // Process the background-removed image
+      // Process the background-removed image and maintain aspect ratio
+      const processedMetadata = await sharp(processedImage).metadata();
       const noBackgroundBuffer = await sharp(Buffer.from(removeBgResult.base64img, 'base64'))
-        .resize({
-          width: MAX_DIMENSION,
-          height: MAX_DIMENSION,
+        .resize(processedMetadata.width, processedMetadata.height, {
           fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .toBuffer();
 
-      // Create blurred background
+      // Create blurred background with same dimensions
       const blurredBuffer = await sharp(processedImage)
+        .resize(processedMetadata.width, processedMetadata.height, {
+          fit: 'fill'
+        })
         .blur(blurAmount)
         .modulate({ brightness: 0.7, saturation: 1.3 })
         .toBuffer();
 
-      // Combine images
+      // Combine images (now they have the same dimensions)
       const combined = await sharp(blurredBuffer)
         .composite([{
           input: noBackgroundBuffer,
