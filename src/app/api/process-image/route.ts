@@ -7,8 +7,11 @@ const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY;
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_DIMENSION = 800;
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   console.log('Starting image processing request');
+  console.log('API Key present:', !!REMOVE_BG_API_KEY);
   
   try {
     if (!REMOVE_BG_API_KEY) {
@@ -22,6 +25,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('image') as File;
     const blurAmount = Number(formData.get('blurAmount')) || 20;
+
+    console.log('Received file:', !!file);
+    console.log('Blur amount:', blurAmount);
 
     if (!file) {
       console.error('No file provided');

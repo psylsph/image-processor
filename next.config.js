@@ -5,7 +5,10 @@ const nextConfig = {
   },
   output: 'standalone',
   poweredByHeader: false,
-  headers: async () => {
+  env: {
+    REMOVE_BG_API_KEY: process.env.REMOVE_BG_API_KEY,
+  },
+  async headers() {
     return [
       {
         source: '/:path*',
@@ -13,6 +16,14 @@ const nextConfig = {
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
           },
         ],
       },
@@ -27,6 +38,6 @@ const nextConfig = {
       },
     ];
   },
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
