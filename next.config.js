@@ -5,9 +5,6 @@ const nextConfig = {
   },
   output: 'standalone',
   poweredByHeader: false,
-  env: {
-    REMOVE_BG_API_KEY: process.env.REMOVE_BG_API_KEY,
-  },
   async headers() {
     return [
       {
