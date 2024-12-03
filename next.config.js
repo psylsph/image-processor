@@ -5,36 +5,35 @@ const nextConfig = {
   },
   output: 'standalone',
   poweredByHeader: false,
+  experimental: {
+    optimizeCss: true,
+    turbotrace: {
+      memoryLimit: 4096
+    }
+  },
+  webpack: (config, { isServer }) => {
+    // Fixes npm packages that depend on `fs` module
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
+  },
+  // Simplified headers configuration
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' }
         ],
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
+      }
     ];
-  },
+  }
 };
 
 module.exports = nextConfig;
