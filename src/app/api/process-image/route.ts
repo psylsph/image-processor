@@ -65,7 +65,13 @@ export async function POST(request: NextRequest) {
       type: 'auto'
     });
 
-    const noBackgroundBuffer = Buffer.from(result.base64img, 'base64');
+    // Resize the background-removed image to match original dimensions
+    const noBackgroundBuffer = await sharp(Buffer.from(result.base64img, 'base64'))
+      .resize(resizeDimensions.width, resizeDimensions.height, {
+        fit: 'contain',
+        position: 'center'
+      })
+      .toBuffer();
 
     // Step 3: Create blurred background
     const blurredBuffer = await sharp(resizedImage)
