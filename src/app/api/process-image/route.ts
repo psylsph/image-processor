@@ -4,74 +4,123 @@ import { ProcessedImage } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Starting image processing...');
+    
     const formData = await request.formData();
     const file = formData.get('image') as File;
     
     if (!file) {
+      console.log('No file provided');
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
       );
     }
 
-    // Convert File to Buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Resize image
-    const resizedBuffer = await sharp(buffer)
-      .resize(800, 800, {
+    // Step 1: Create base image and get dimensions
+    const baseImage = sharp(buffer);
+    const metadata = await baseImage.metadata();
+    
+    // Calculate dimensions while maintaining aspect ratio
+    const maxDimension = 800;
+    const resizeDimensions = calculateResizeDimensions(
+      metadata.width || 800,
+      metadata.height || 800,
+      maxDimension
+    );
+
+    // Create resized base image
+    const resizedImage = await baseImage
+      .resize(resizeDimensions.width, resizeDimensions.height, {
         fit: 'inside',
         withoutEnlargement: true
       })
       .toBuffer();
 
-    // For now, we'll create a simple mask based on brightness
-    const mask = await sharp(resizedBuffer)
+    // Step 2: Create mask with exact same dimensions
+    const mask = await sharp(resizedImage)
+      .resize(resizeDimensions.width, resizeDimensions.height)
       .greyscale()
-      .blur(20)
+      .normalise()
+      .threshold(128)
+      .raw()
       .toBuffer();
 
-    // Create a white background
-    const whiteBackground = await sharp({
-      create: {
-        width: 800,
-        height: 800,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
-      }
-    })
-    .png()
-    .toBuffer();
-
-    // Combine the images
-    const combined = await sharp(whiteBackground)
+    // Step 3: Apply mask to create transparent background
+    const noBackgroundBuffer = await sharp(resizedImage)
+      .ensureAlpha()
       .composite([
         {
           input: mask,
-          blend: 'multiply'
-        },
+          raw: {
+            width: resizeDimensions.width,
+            height: resizeDimensions.height,
+            channels: 1
+          },
+          blend: 'dest-in'
+        }
+      ])
+      .toBuffer();
+
+    // Step 4: Create blurred background
+    const blurredBuffer = await sharp(resizedImage)
+      .blur(20)
+      .modulate({
+        brightness: 0.7,
+        saturation: 1.3
+      })
+      .gamma(1.2)
+      .toBuffer();
+
+    // Step 5: Combine final image
+    const combined = await sharp(blurredBuffer)
+      .composite([
         {
-          input: resizedBuffer,
+          input: noBackgroundBuffer,
           blend: 'over'
         }
       ])
       .toBuffer();
 
-    // Convert all buffers to base64
     const result: ProcessedImage = {
-      original: `data:image/png;base64,${resizedBuffer.toString('base64')}`,
-      noBackground: `data:image/png;base64,${resizedBuffer.toString('base64')}`,
-      blurredBackground: `data:image/png;base64,${mask.toString('base64')}`,
+      original: `data:image/png;base64,${resizedImage.toString('base64')}`,
+      noBackground: `data:image/png;base64,${noBackgroundBuffer.toString('base64')}`,
+      blurredBackground: `data:image/png;base64,${blurredBuffer.toString('base64')}`,
       combined: `data:image/png;base64,${combined.toString('base64')}`
     };
 
+    console.log('Processing completed successfully');
     return NextResponse.json(result);
+
   } catch (error) {
-    console.error('Error processing image:', error);
+    console.error('Error in image processing:', error);
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to process image' },
+      { error: error instanceof Error ? error.message : 'Failed to process image' },
       { status: 500 }
     );
+  }
+}
+
+function calculateResizeDimensions(width: number, height: number, maxDimension: number) {
+  if (width <= maxDimension && height <= maxDimension) {
+    return { width, height };
+  }
+
+  if (width > height) {
+    const newWidth = maxDimension;
+    const newHeight = Math.round((height * maxDimension) / width);
+    return { width: newWidth, height: newHeight };
+  } else {
+    const newHeight = maxDimension;
+    const newWidth = Math.round((width * maxDimension) / height);
+    return { width: newWidth, height: newHeight };
   }
 }

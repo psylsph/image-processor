@@ -5,7 +5,6 @@ import download from 'downloadjs';
 
 export default function ImageProcessor({ processedImage, onReset }: ImageProcessorProps) {
   const handleDownload = () => {
-    // Convert base64 to blob and download
     fetch(processedImage.combined)
       .then(res => res.blob())
       .then(blob => {
@@ -16,19 +15,39 @@ export default function ImageProcessor({ processedImage, onReset }: ImageProcess
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Original Image</h3>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">1. Original Image</h3>
           <img 
             src={processedImage.original} 
             alt="Original" 
             className="w-full rounded-lg shadow-md"
           />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Final Result</h3>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">2. Background Removed</h3>
+          <div className="w-full rounded-lg shadow-md overflow-hidden" style={{
+            background: 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 50% / 20px 20px'
+          }}>
+            <img 
+              src={processedImage.noBackground} 
+              alt="No Background" 
+              className="w-full"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">3. Blurred Background</h3>
+          <img 
+            src={processedImage.blurredBackground} 
+            alt="Blurred Background" 
+            className="w-full rounded-lg shadow-md"
+          />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">4. Final Result</h3>
           <img 
             src={processedImage.combined} 
-            alt="Processed" 
+            alt="Final Result" 
             className="w-full rounded-lg shadow-md"
           />
         </div>
