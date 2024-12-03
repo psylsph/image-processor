@@ -40,12 +40,17 @@ export async function POST(request: NextRequest) {
       })
       .toBuffer();
 
+    // Get exact dimensions of resized image
+    const resizedMetadata = await sharp(resizedImage).metadata();
+    const width = resizedMetadata.width!;
+    const height = resizedMetadata.height!;
+
     // Step 2: Create mask with exact same dimensions
     const mask = await sharp(resizedImage)
-      .resize(resizeDimensions.width, resizeDimensions.height)
+      .resize(width, height)
       .greyscale()
-      .normalise()
       .threshold(128)
+      .negate()
       .raw()
       .toBuffer();
 
@@ -56,8 +61,8 @@ export async function POST(request: NextRequest) {
         {
           input: mask,
           raw: {
-            width: resizeDimensions.width,
-            height: resizeDimensions.height,
+            width,
+            height,
             channels: 1
           },
           blend: 'dest-in'
