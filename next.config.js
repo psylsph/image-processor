@@ -5,23 +5,6 @@ const nextConfig = {
   },
   output: 'standalone',
   poweredByHeader: false,
-  experimental: {
-    optimizeCss: true,
-    turbotrace: {
-      memoryLimit: 4096
-    }
-  },
-  webpack: (config, { isServer }) => {
-    // Fixes npm packages that depend on `fs` module
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-      };
-    }
-    return config;
-  },
-  // Simplified headers configuration
   async headers() {
     return [
       {
