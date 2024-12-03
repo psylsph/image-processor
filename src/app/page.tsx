@@ -11,6 +11,7 @@ export default function Home() {
   const [blurAmount, setBlurAmount] = useState(20);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleImageSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -46,6 +47,7 @@ export default function Home() {
     if (!selectedImage) return;
 
     setLoading(true);
+    setError(null);
     const formData = new FormData();
     formData.append('image', selectedImage);
     formData.append('blurAmount', blurAmount.toString());
@@ -55,10 +57,17 @@ export default function Home() {
         method: 'POST',
         body: formData,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to process image' }));
+        throw new Error(errorData.error || 'Failed to process image');
+      }
+      
       const result = await response.json();
       setProcessedImages(result);
     } catch (error) {
       console.error('Error processing image:', error);
+      setError(error instanceof Error ? error.message : 'Failed to process image');
     } finally {
       setLoading(false);
     }
@@ -145,6 +154,13 @@ export default function Home() {
                   }}
                 />
               </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm mb-4">
+                  {error}
+                </div>
+              )}
 
               {/* Process Button */}
               <button

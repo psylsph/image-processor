@@ -4,43 +4,60 @@ import { ProcessedImage } from '@/types';
 import { RemoveBgResult, removeBackgroundFromImageBase64 } from "remove.bg";
 
 // You'll need to get an API key from remove.bg
-const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY || 'your-api-key-here';
+const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Starting image processing...');
-    
+    // Validate API key first
+    if (!REMOVE_BG_API_KEY) {
+      console.error('Remove.bg API key not configured');
+      return NextResponse.json(
+        { error: 'Server configuration error: Remove.bg API key not found. Please contact the administrator.' },
+        { status: 500 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('image') as File;
     const blurAmount = Number(formData.get('blurAmount')) || 20;
     
     if (!file) {
-      console.log('No file provided');
+      console.error('No file provided');
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
       );
     }
 
-    if (!REMOVE_BG_API_KEY || REMOVE_BG_API_KEY === 'your-api-key-here') {
-      return NextResponse.json(
-        { error: 'Remove.bg API key not configured' },
-        { status: 500 }
-      );
-    }
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Validate image buffer
+    if (!buffer || buffer.length === 0) {
+      console.error('Invalid image buffer');
+      return NextResponse.json(
+        { error: 'Invalid image data' },
+        { status: 400 }
+      );
+    }
 
     // Step 1: Create base image and get dimensions
     const baseImage = sharp(buffer);
     const metadata = await baseImage.metadata();
     
+    if (!metadata.width || !metadata.height) {
+      console.error('Invalid image dimensions');
+      return NextResponse.json(
+        { error: 'Invalid image dimensions' },
+        { status: 400 }
+      );
+    }
+
     // Calculate dimensions while maintaining aspect ratio
     const maxDimension = 800;
     const resizeDimensions = calculateResizeDimensions(
-      metadata.width || 800,
-      metadata.height || 800,
+      metadata.width,
+      metadata.height,
       maxDimension
     );
 
@@ -52,19 +69,23 @@ export async function POST(request: NextRequest) {
       })
       .toBuffer();
 
-    // Get exact dimensions of resized image
-    const resizedMetadata = await sharp(resizedImage).metadata();
-    const width = resizedMetadata.width!;
-    const height = resizedMetadata.height!;
-
     // Step 2: Remove background using remove.bg API
     const base64Image = resizedImage.toString('base64');
-    const result: RemoveBgResult = await removeBackgroundFromImageBase64({
-      base64img: base64Image,
-      apiKey: REMOVE_BG_API_KEY,
-      size: 'regular',
-      type: 'auto'
-    });
+    let result: RemoveBgResult;
+    try {
+      result = await removeBackgroundFromImageBase64({
+        base64img: base64Image,
+        apiKey: REMOVE_BG_API_KEY,
+        size: 'regular',
+        type: 'auto'
+      });
+    } catch (error) {
+      console.error('Remove.bg API error:', error);
+      return NextResponse.json(
+        { error: 'Failed to remove background. Please try again later.' },
+        { status: 500 }
+      );
+    }
 
     // Resize the background-removed image to match original dimensions
     const noBackgroundBuffer = await sharp(Buffer.from(result.base64img, 'base64'))
@@ -112,7 +133,7 @@ export async function POST(request: NextRequest) {
       console.error('Error stack:', error.stack);
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process image' },
+      { error: 'An unexpected error occurred while processing the image. Please try again.' },
       { status: 500 }
     );
   }
