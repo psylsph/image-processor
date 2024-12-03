@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { ProcessedImage } from '@/types';
+import { RemoveBgResult, removeBackgroundFromImageBase64 } from "remove.bg";
+
+// You'll need to get an API key from remove.bg
+const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY || 'your-api-key-here';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +18,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
+      );
+    }
+
+    if (!REMOVE_BG_API_KEY || REMOVE_BG_API_KEY === 'your-api-key-here') {
+      return NextResponse.json(
+        { error: 'Remove.bg API key not configured' },
+        { status: 500 }
       );
     }
 
@@ -45,32 +56,18 @@ export async function POST(request: NextRequest) {
     const width = resizedMetadata.width!;
     const height = resizedMetadata.height!;
 
-    // Step 2: Create mask with exact same dimensions
-    const mask = await sharp(resizedImage)
-      .resize(width, height)
-      .greyscale()
-      .threshold(128)
-      .negate()
-      .raw()
-      .toBuffer();
+    // Step 2: Remove background using remove.bg API
+    const base64Image = resizedImage.toString('base64');
+    const result: RemoveBgResult = await removeBackgroundFromImageBase64({
+      base64img: base64Image,
+      apiKey: REMOVE_BG_API_KEY,
+      size: 'regular',
+      type: 'auto'
+    });
 
-    // Step 3: Apply mask to create transparent background
-    const noBackgroundBuffer = await sharp(resizedImage)
-      .ensureAlpha()
-      .composite([
-        {
-          input: mask,
-          raw: {
-            width,
-            height,
-            channels: 1
-          },
-          blend: 'dest-in'
-        }
-      ])
-      .toBuffer();
+    const noBackgroundBuffer = Buffer.from(result.base64img, 'base64');
 
-    // Step 4: Create blurred background
+    // Step 3: Create blurred background
     const blurredBuffer = await sharp(resizedImage)
       .blur(20)
       .modulate({
@@ -80,7 +77,7 @@ export async function POST(request: NextRequest) {
       .gamma(1.2)
       .toBuffer();
 
-    // Step 5: Combine final image
+    // Step 4: Combine final image
     const combined = await sharp(blurredBuffer)
       .composite([
         {
@@ -90,7 +87,7 @@ export async function POST(request: NextRequest) {
       ])
       .toBuffer();
 
-    const result: ProcessedImage = {
+    const resultImage: ProcessedImage = {
       original: `data:image/png;base64,${resizedImage.toString('base64')}`,
       noBackground: `data:image/png;base64,${noBackgroundBuffer.toString('base64')}`,
       blurredBackground: `data:image/png;base64,${blurredBuffer.toString('base64')}`,
@@ -98,7 +95,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log('Processing completed successfully');
-    return NextResponse.json(result);
+    return NextResponse.json(resultImage);
 
   } catch (error) {
     console.error('Error in image processing:', error);
