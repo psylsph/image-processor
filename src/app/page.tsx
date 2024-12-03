@@ -4,23 +4,48 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 
+interface ProcessedImage {
+  original: string;
+  noBackground: string;
+  blurredBackground: string;
+  combined: string;
+}
+
 export default function Home() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [processedImages, setProcessedImages] = useState<any>(null);
+  const [processedImages, setProcessedImages] = useState<ProcessedImage | null>(null);
   const [loading, setLoading] = useState(false);
   const [blurAmount, setBlurAmount] = useState(20);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleImageSelect = (file: File) => {
-    if (file && file.type.startsWith('image/')) {
-      setSelectedImage(file);
-      setProcessedImages(null);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+  const handleImageSelect = useCallback((file: File) => {
+    if (!file) {
+      setError('No file selected');
+      return;
     }
-  };
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size must be less than 10MB');
+      return;
+    }
+
+    setError(null);
+    setSelectedImage(file);
+    setProcessedImages(null);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -34,17 +59,20 @@ export default function Home() {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
     const file = e.dataTransfer.files[0];
     handleImageSelect(file);
-  };
+  }, [handleImageSelect]);
 
   const processImage = useCallback(async () => {
-    if (!selectedImage) return;
+    if (!selectedImage) {
+      setError('Please select an image first');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -57,29 +85,42 @@ export default function Home() {
         method: 'POST',
         body: formData,
       });
-      
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Non-JSON response:', await response.text());
-        throw new Error('Invalid server response format');
-      }
 
-      const result = await response.json();
-      
       if (!response.ok) {
-        console.error('Server error:', result);
-        throw new Error(result.error || `Server error: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error || `Server error: ${response.status}`
+        );
       }
 
-      if (!result.original || !result.noBackground || !result.blurredBackground || !result.combined) {
-        console.error('Invalid response format:', result);
-        throw new Error('Invalid response format from server');
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Invalid response from server');
+      }
+
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response format');
+      }
+
+      const { original, noBackground, blurredBackground, combined } = result;
+
+      if (!original || !noBackground || !blurredBackground || !combined) {
+        throw new Error('Incomplete response from server');
+      }
+
+      if (![original, noBackground, blurredBackground, combined].every(url => 
+        url.startsWith('data:image/'))) {
+        throw new Error('Invalid image data received');
       }
 
       setProcessedImages(result);
     } catch (error) {
-      console.error('Error details:', error);
+      console.error('Processing error:', error);
       setError(error instanceof Error ? error.message : 'Failed to process image');
+      setProcessedImages(null);
     } finally {
       setLoading(false);
     }
@@ -168,11 +209,18 @@ export default function Home() {
               </div>
 
               {/* Error Message */}
-              {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm mb-4">
-                  {error}
-                </div>
-              )}
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Process Button */}
               <button
