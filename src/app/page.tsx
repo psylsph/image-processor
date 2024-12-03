@@ -10,15 +10,36 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [blurAmount, setBlurAmount] = useState(20);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const handleImageSelect = (file: File) => {
+    if (file && file.type.startsWith('image/')) {
       setSelectedImage(file);
       setProcessedImages(null);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
     }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    handleImageSelect(file);
   };
 
   const processImage = useCallback(async () => {
@@ -71,14 +92,21 @@ export default function Home() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleImageSelect}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageSelect(file);
+                  }}
                   className="hidden"
                   id="file-upload"
                 />
                 <label
                   htmlFor="file-upload"
                   className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-all hover:border-teal-400 flex flex-col items-center
+                    ${isDragging ? 'border-teal-400 bg-gray-700/50' : ''}
                     ${previewUrl ? 'border-teal-500' : 'border-gray-600'}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                 >
                   {previewUrl ? (
                     <img
@@ -90,7 +118,7 @@ export default function Home() {
                     <>
                       <PhotoIcon className="h-12 w-12 text-gray-400 mb-4" />
                       <span className="text-sm text-gray-400">
-                        Drop your image here or click to upload
+                        {isDragging ? 'Drop image here' : 'Drop your image here or click to upload'}
                       </span>
                     </>
                   )}
@@ -174,6 +202,24 @@ export default function Home() {
                         alt={item.title}
                         className="w-full rounded-lg"
                       />
+                    </div>
+                    <div className="p-4 pt-0">
+                      <button
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = item.image;
+                          link.download = `${item.title.toLowerCase().replace(' ', '-')}.png`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="w-full py-2 px-4 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                        Download
+                      </button>
                     </div>
                   </motion.div>
                 ))}
