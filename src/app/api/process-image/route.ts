@@ -4,7 +4,7 @@ import { ProcessedImage } from '@/types';
 import { removeBackgroundFromImageBase64, RemoveBgResult } from "remove.bg";
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = 60;  // Maximum allowed duration for hobby plan
 
 export async function POST(request: NextRequest) {
   const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY;
