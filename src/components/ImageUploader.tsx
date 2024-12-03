@@ -15,6 +15,13 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
     setError(null);
     const file = acceptedFiles[0];
 
+    console.log('Attempting to upload file:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified
+    });
+
     try {
       // Create form data
       const formData = new FormData();
@@ -28,6 +35,7 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Upload failed:', errorData);
         throw new Error(errorData.error || 'Failed to process image');
       }
 
@@ -44,7 +52,9 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg']
+      'image/*': ['.png', '.jpg', '.jpeg', '.heic', '.heif'],
+      'image/heic': ['.heic'],
+      'image/heif': ['.heif']
     },
     maxFiles: 1,
     multiple: false
@@ -69,7 +79,7 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
         ) : (
           <div>
             <p className="mb-2">Drag and drop an image here, or click to select</p>
-            <p className="text-sm text-gray-500">Supports PNG and JPEG</p>
+            <p className="text-sm text-gray-500">Supports PNG, JPEG, HEIC, and HEIF</p>
           </div>
         )}
       </div>

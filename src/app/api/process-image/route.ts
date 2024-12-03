@@ -47,8 +47,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      console.error('Invalid file type:', file.type);
+    const validImageTypes = ['image/heif', 'image/heic', 'image/heic-sequence'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const isValidExtension = ['heic', 'heif'].includes(fileExtension || '');
+    
+    console.log('File validation:', {
+      type: file.type,
+      extension: fileExtension,
+      isValidExtension,
+      name: file.name
+    });
+
+    if (!file.type.startsWith('image/') && !validImageTypes.includes(file.type) && !isValidExtension) {
+      console.error('Invalid file type:', {
+        type: file.type,
+        extension: fileExtension,
+        name: file.name
+      });
       return NextResponse.json(
         { error: 'Invalid file type' },
         { status: 400 }
@@ -58,40 +73,27 @@ export async function POST(request: NextRequest) {
     console.log('Processing image:', {
       type: file.type,
       size: file.size,
-      name: file.name
+      name: file.name,
+      extension: fileExtension
     });
 
-    // Convert File to Buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Convert file to buffer and handle HEIF/HEIC
+    const rawBuffer = await file.arrayBuffer();
+    const inputBuffer = Buffer.from(new Uint8Array(rawBuffer));
+    
+    // Convert HEIF/HEIC to JPEG if needed
+    const processedBuffer = (validImageTypes.includes(file.type) || isValidExtension)
+      ? await sharp(inputBuffer as Buffer).toFormat('jpeg').toBuffer()
+      : inputBuffer;
 
-    // Process image with Sharp
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
-
-    if (!metadata.width || !metadata.height) {
-      console.error('Invalid image dimensions');
-      return NextResponse.json(
-        { error: 'Invalid image dimensions' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate resize dimensions
-    const scale = Math.min(
-      1,
-      MAX_DIMENSION / metadata.width,
-      MAX_DIMENSION / metadata.height
-    );
-    const width = Math.round(metadata.width * scale);
-    const height = Math.round(metadata.height * scale);
-
-    // Resize image
-    const resizedBuffer = await image
-      .resize(width, height, { fit: 'inside' })
+    // Process the image with the correct buffer
+    const processedImage = await sharp(processedBuffer)
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: 'inside',
+      })
       .toBuffer();
-
-    console.log('Image resized to:', { width, height });
 
     // Remove background
     let removeBgResult: RemoveBgResult | null = null;
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
     while (attempt < maxRetries && !removeBgResult) {
       try {
         removeBgResult = await removeBackgroundFromImageBase64({
-          base64img: resizedBuffer.toString('base64'),
+          base64img: processedImage.toString('base64'),
           apiKey: REMOVE_BG_API_KEY,
           size: 'regular'
         });
@@ -136,11 +138,15 @@ export async function POST(request: NextRequest) {
 
     // Process the background-removed image
     const noBackgroundBuffer = await sharp(Buffer.from(removeBgResult.base64img, 'base64'))
-      .resize(width, height, { fit: 'contain' })
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: 'contain',
+      })
       .toBuffer();
 
     // Create blurred background
-    const blurredBuffer = await sharp(resizedBuffer)
+    const blurredBuffer = await sharp(processedImage)
       .blur(blurAmount)
       .modulate({ brightness: 0.7, saturation: 1.3 })
       .toBuffer();
@@ -155,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare response
     const result: ProcessedImage = {
-      original: `data:image/png;base64,${resizedBuffer.toString('base64')}`,
+      original: `data:image/png;base64,${processedImage.toString('base64')}`,
       noBackground: `data:image/png;base64,${noBackgroundBuffer.toString('base64')}`,
       blurredBackground: `data:image/png;base64,${blurredBuffer.toString('base64')}`,
       combined: `data:image/png;base64,${combined.toString('base64')}`
