@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { ImageUploaderProps } from '@/types';
-import heic2any from 'heic2any';
+import dynamic from 'next/dynamic';
 
 interface Props extends ImageUploaderProps {
   blurAmount: number;
@@ -21,6 +21,10 @@ export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
 
     try {
       console.log('Converting HEIC/HEIF to JPEG...');
+      
+      // Dynamically import heic2any only when needed
+      const heic2any = (await import('heic2any')).default;
+      
       const blob = await heic2any({
         blob: file,
         toType: 'image/jpeg',

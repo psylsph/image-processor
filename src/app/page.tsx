@@ -3,7 +3,13 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoIcon } from '@heroicons/react/24/outline';
-import ImageUploader from '@/components/ImageUploader';
+import dynamic from 'next/dynamic';
+import type { ImageUploaderProps } from '@/types';
+
+// Import ImageUploader component with no SSR
+const ImageUploader = dynamic(() => import('@/components/ImageUploader'), {
+  ssr: false,
+});
 
 interface ProcessedImage {
   original: string;
