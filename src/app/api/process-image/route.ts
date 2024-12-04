@@ -9,7 +9,6 @@ export const maxDuration = 60;  // Maximum allowed duration for hobby plan
 export async function POST(request: NextRequest) {
   const REMOVE_BG_API_KEY = process.env.REMOVE_BG_API_KEY;
   const MAX_DIMENSION = 800;
-  const blurAmount = 30;
 
   if (!REMOVE_BG_API_KEY) {
     return NextResponse.json(
@@ -22,6 +21,7 @@ export async function POST(request: NextRequest) {
     // Get form data
     const formData = await request.formData();
     const file = formData.get('image') as File;
+    const blurAmount = Number(formData.get('blurAmount')) || 20; // Default to 20 if not provided
 
     if (!file) {
       return NextResponse.json(
@@ -29,6 +29,16 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate blur amount
+    if (isNaN(blurAmount) || blurAmount < 0 || blurAmount > 100) {
+      return NextResponse.json(
+        { error: 'Invalid blur amount. Must be between 0 and 100.' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Processing with blur amount:', blurAmount);
 
     // Get file info
     const fileExtension = file.name.split('.').pop()?.toLowerCase();

@@ -153,44 +153,6 @@ export default function Home() {
             className="bg-gray-800 rounded-2xl p-8 shadow-xl mb-8"
           >
             <div className="space-y-6">
-              {/* File Upload Area */}
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageSelect(file);
-                  }}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-all hover:border-teal-400 flex flex-col items-center
-                    ${isDragging ? 'border-teal-400 bg-gray-700/50' : ''}
-                    ${previewUrl ? 'border-teal-500' : 'border-gray-600'}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="max-h-64 rounded-lg"
-                    />
-                  ) : (
-                    <>
-                      <PhotoIcon className="h-12 w-12 text-gray-400 mb-4" />
-                      <span className="text-sm text-gray-400">
-                        {isDragging ? 'Drop image here' : 'Drop your image here or click to upload'}
-                      </span>
-                    </>
-                  )}
-                </label>
-              </div>
-
               {/* Blur Slider */}
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -201,16 +163,19 @@ export default function Home() {
                 </div>
                 <input
                   type="range"
-                  min="1"
+                  min="0"
                   max="100"
                   value={blurAmount}
                   onChange={(e) => setBlurAmount(Number(e.target.value))}
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-700"
-                  style={{
-                    backgroundImage: `linear-gradient(to right, rgb(45, 212, 191) ${blurAmount}%, rgb(55, 65, 81) ${blurAmount}%)`
-                  }}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
+
+              {/* Image Uploader */}
+              <ImageUploader 
+                onImageProcessed={handleImageProcessed}
+                blurAmount={blurAmount}
+              />
 
               {/* Error Message */}
               <AnimatePresence mode="wait">
