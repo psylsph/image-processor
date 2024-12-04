@@ -16,6 +16,7 @@
     "downloadjs": "^1.4.7",
     "framer-motion": "^11.13.1",
     "heic-convert": "^2.1.0",
+    "heic2any": "^0.0.4",
     "libheif-js": "^1.18.2",
     "next": "^15.0.3",
     "react": "^18.3.1",

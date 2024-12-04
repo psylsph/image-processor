@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { ImageUploaderProps } from '@/types';
+import heic2any from 'heic2any';
 
 interface Props extends ImageUploaderProps {
   blurAmount: number;
@@ -13,50 +14,39 @@ export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const convertHeicToJpeg = async (file: File): Promise<File> => {
-    if (!file.name.toLowerCase().endsWith('.heic')) {
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.heic') && !fileName.endsWith('.heif')) {
       return file;
     }
 
     try {
-      // Create an img element to handle the conversion
-      const img = document.createElement('img');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      // Create a blob URL from the HEIC file
-      const objectUrl = URL.createObjectURL(file);
-
-      // Wait for the image to load
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = objectUrl;
+      console.log('Converting HEIC/HEIF to JPEG...');
+      const blob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.9
       });
 
-      // Set canvas dimensions to match the image
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      // Draw the image onto the canvas
-      ctx?.drawImage(img, 0, 0);
-
-      // Convert canvas to blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/jpeg', 0.9);
-      });
-
-      // Clean up
-      URL.revokeObjectURL(objectUrl);
-
+      // Handle both single blob and array of blobs
+      const resultBlob = Array.isArray(blob) ? blob[0] : blob;
+      
       // Create a new file from the blob
-      return new File([blob], file.name.replace('.heic', '.jpg'), {
+      const newFileName = fileName.replace(/\.(heic|heif)$/, '.jpg');
+      const convertedFile = new File([resultBlob], newFileName, {
         type: 'image/jpeg',
       });
+
+      console.log('Conversion successful:', {
+        originalName: file.name,
+        newName: convertedFile.name,
+        newType: convertedFile.type,
+        newSize: convertedFile.size
+      });
+
+      return convertedFile;
     } catch (error) {
-      console.error('Error converting HEIC:', error);
-      throw new Error('Failed to convert HEIC image. Please try converting it to JPEG first.');
+      console.error('Error converting HEIC/HEIF:', error);
+      throw new Error('Failed to convert HEIC/HEIF image. Please try converting it to JPEG first.');
     }
   };
 
@@ -75,8 +65,9 @@ export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
         lastModified: file.lastModified
       });
 
-      // Convert HEIC to JPEG if necessary
-      if (file.name.toLowerCase().endsWith('.heic')) {
+      // Convert HEIC/HEIF to JPEG if necessary
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
         try {
           file = await convertHeicToJpeg(file);
           console.log('Converted file:', {
@@ -85,7 +76,8 @@ export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
             size: file.size
           });
         } catch (error) {
-          throw new Error('Failed to convert HEIC image. Please try converting it to JPEG first.');
+          console.error('Conversion error:', error);
+          throw new Error('Failed to convert HEIC/HEIF image. Please try converting it to JPEG first.');
         }
       }
 
@@ -118,11 +110,11 @@ export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: undefined,  // Accept all files
+    accept: {
+      'image/*': ['.jpg', '.jpeg', '.png', '.heic', '.heif'],
+    },
     maxFiles: 1,
     multiple: false,
-    noClick: false,
-    noKeyboard: false
   });
 
   return (
