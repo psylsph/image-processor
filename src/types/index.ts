@@ -7,6 +7,7 @@ export interface ProcessedImage {
 
 export interface ImageUploaderProps {
   onImageProcessed: (image: ProcessedImage) => void;
+  blurAmount: number;
 }
 
 export interface ImageProcessorProps {

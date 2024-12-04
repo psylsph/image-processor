@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoIcon } from '@heroicons/react/24/outline';
+import ImageUploader from '@/components/ImageUploader';
 
 interface ProcessedImage {
   original: string;
@@ -153,6 +154,44 @@ export default function Home() {
             className="bg-gray-800 rounded-2xl p-8 shadow-xl mb-8"
           >
             <div className="space-y-6">
+              {/* File Upload Area */}
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageSelect(file);
+                  }}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-all hover:border-teal-400 flex flex-col items-center
+                    ${isDragging ? 'border-teal-400 bg-gray-700/50' : ''}
+                    ${previewUrl ? 'border-teal-500' : 'border-gray-600'}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="max-h-64 rounded-lg"
+                    />
+                  ) : (
+                    <>
+                      <PhotoIcon className="h-12 w-12 text-gray-400 mb-4" />
+                      <span className="text-sm text-gray-400">
+                        {isDragging ? 'Drop image here' : 'Drop your image here or click to upload'}
+                      </span>
+                    </>
+                  )}
+                </label>
+              </div>
+
               {/* Blur Slider */}
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -171,7 +210,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* Image Uploader */}
+              {/* Image Uploader Component */}
               <ImageUploader 
                 onImageProcessed={handleImageProcessed}
                 blurAmount={blurAmount}
