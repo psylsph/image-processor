@@ -126,6 +126,10 @@ export default function Home() {
     }
   }, [selectedImage, blurAmount]);
 
+  const handleImageProcessed = useCallback((processedImages: ProcessedImage) => {
+    setProcessedImages(processedImages);
+  }, []);
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">

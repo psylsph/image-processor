@@ -4,7 +4,11 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { ImageUploaderProps } from '@/types';
 
-export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) {
+interface Props extends ImageUploaderProps {
+  blurAmount: number;
+}
+
+export default function ImageUploader({ onImageProcessed, blurAmount }: Props) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +92,7 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
       // Create form data
       const formData = new FormData();
       formData.append('image', file);
+      formData.append('blurAmount', blurAmount.toString());
 
       // Process the image
       const response = await fetch('/api/process-image', {
@@ -109,7 +114,7 @@ export default function ImageUploader({ onImageProcessed }: ImageUploaderProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [onImageProcessed]);
+  }, [onImageProcessed, blurAmount]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
