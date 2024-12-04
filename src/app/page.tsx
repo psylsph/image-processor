@@ -2,136 +2,17 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PhotoIcon } from '@heroicons/react/24/outline';
 import dynamic from 'next/dynamic';
-import type { ImageUploaderProps } from '@/types';
+import type { ImageUploaderProps, ProcessedImage } from '@/types';
 
 // Import ImageUploader component with no SSR
 const ImageUploader = dynamic(() => import('@/components/ImageUploader'), {
   ssr: false,
 });
 
-interface ProcessedImage {
-  original: string;
-  noBackground: string;
-  blurredBackground: string;
-  combined: string;
-}
-
 export default function Home() {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [processedImages, setProcessedImages] = useState<ProcessedImage | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [blurAmount, setBlurAmount] = useState(20);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleImageSelect = useCallback((file: File) => {
-    if (!file) {
-      setError('No file selected');
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image size must be less than 10MB');
-      return;
-    }
-
-    setError(null);
-    setSelectedImage(file);
-    setProcessedImages(null);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, []);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    handleImageSelect(file);
-  }, [handleImageSelect]);
-
-  const processImage = useCallback(async () => {
-    if (!selectedImage) {
-      setError('Please select an image first');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    const formData = new FormData();
-    formData.append('image', selectedImage);
-    formData.append('blurAmount', blurAmount.toString());
-
-    try {
-      const response = await fetch('/api/process-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.error || `Server error: ${response.status}`
-        );
-      }
-
-      let result;
-      try {
-        result = await response.json();
-      } catch (e) {
-        console.error('Failed to parse response:', e);
-        throw new Error('Invalid response from server');
-      }
-
-      if (!result || typeof result !== 'object') {
-        throw new Error('Invalid response format');
-      }
-
-      const { original, noBackground, blurredBackground, combined } = result;
-
-      if (!original || !noBackground || !blurredBackground || !combined) {
-        throw new Error('Incomplete response from server');
-      }
-
-      if (![original, noBackground, blurredBackground, combined].every(url => 
-        url.startsWith('data:image/'))) {
-        throw new Error('Invalid image data received');
-      }
-
-      setProcessedImages(result);
-    } catch (error) {
-      console.error('Processing error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process image');
-      setProcessedImages(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedImage, blurAmount]);
 
   const handleImageProcessed = useCallback((processedImages: ProcessedImage) => {
     setProcessedImages(processedImages);
@@ -160,66 +41,9 @@ export default function Home() {
             className="bg-gray-800 rounded-2xl p-8 shadow-xl mb-8"
           >
             <div className="space-y-6">
-              {/* File Upload Area */}
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageSelect(file);
-                  }}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-all hover:border-teal-400 flex flex-col items-center
-                    ${isDragging ? 'border-teal-400 bg-gray-700/50' : ''}
-                    ${previewUrl ? 'border-teal-500' : 'border-gray-600'}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="max-h-64 rounded-lg"
-                    />
-                  ) : (
-                    <>
-                      <PhotoIcon className="h-12 w-12 text-gray-400 mb-4" />
-                      <span className="text-sm text-gray-400">
-                        {isDragging ? 'Drop image here' : 'Drop your image here or click to upload'}
-                      </span>
-                    </>
-                  )}
-                </label>
-              </div>
-
-              {/* Blur Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <label className="text-sm font-medium text-gray-300">
-                    Blur Intensity
-                  </label>
-                  <span className="text-sm text-teal-400">{blurAmount}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={blurAmount}
-                  onChange={(e) => setBlurAmount(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
-
               {/* Image Uploader Component */}
               <ImageUploader 
                 onImageProcessed={handleImageProcessed}
-                blurAmount={blurAmount}
               />
 
               {/* Error Message */}
@@ -228,94 +52,37 @@ export default function Home() {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm"
+                    exit={{ opacity: 0 }}
+                    className="text-red-400 text-sm mt-2"
                   >
                     {error}
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* Process Button */}
-              <button
-                onClick={processImage}
-                disabled={!selectedImage || loading}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-all transform hover:scale-105
-                  ${!selectedImage || loading
-                    ? 'bg-gray-600 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600'
-                  }`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Processing...
-                  </span>
-                ) : (
-                  'Process Image'
-                )}
-              </button>
             </div>
           </motion.div>
 
-          {/* Results Grid */}
-          <AnimatePresence>
-            {processedImages && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-6"
-              >
-                {[
-                  { title: 'Original', image: processedImages.original },
-                  { title: 'No Background', image: processedImages.noBackground },
-                  { title: 'Blurred Background', image: processedImages.blurredBackground },
-                  { title: 'Combined Result', image: processedImages.combined }
-                ].map((item, index) => (
-                  <motion.div
-                    key={item.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-gray-800 rounded-xl overflow-hidden shadow-lg"
-                  >
-                    <div className="p-4 border-b border-gray-700">
-                      <h3 className="text-lg font-medium text-gray-200">{item.title}</h3>
-                    </div>
-                    <div className="p-4">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full rounded-lg"
-                      />
-                    </div>
-                    <div className="p-4 pt-0">
-                      <button
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = item.image;
-                          link.download = `${item.title.toLowerCase().replace(' ', '-')}.png`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        }}
-                        className="w-full py-2 px-4 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white rounded-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                        Download
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Display processed images */}
+          {processedImages && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-lg font-medium mb-4">Original Image</h3>
+                <img
+                  src={processedImages.original}
+                  alt="Original"
+                  className="rounded-lg w-full"
+                />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium mb-4">Processed Image</h3>
+                <img
+                  src={processedImages.combined}
+                  alt="Processed"
+                  className="rounded-lg w-full"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>
